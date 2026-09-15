@@ -490,7 +490,6 @@
       "src/ui/layerPanel.js",
       "src/ui/layers.js",
       "src/ui/leftPanelRail.js",
-      "src/search/universalSearch.js",
       "src/ui/location.js",
       "src/ui/locationControls.js",
       "src/ui/locationSearch.js",

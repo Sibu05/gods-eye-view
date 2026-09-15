@@ -34,7 +34,6 @@ import {
   clampBloomIntensity,
   decodeBloomIntensity,
 } from '../bloom.js';
-import { createUniversalSearch } from '../search/universalSearch.js';
 import { createSelfLocateControl } from './selfLocate.js';
 import { setupZoomSmoothing } from './zoomSmoothing.js';
 
@@ -616,7 +615,6 @@ export class StyleManager {
     this._initCctvPanel();
     this._initGlobalContextPanel();
     this._initLocationBar();
-    this._initUniversalSearch();
     this._initSelfLocate();
     this._initZoomSmoothing();
     this._initShareButton();
@@ -2352,8 +2350,6 @@ export class StyleManager {
         );
       });
     }
-    // Re-bind universal search now that layer data is available
-    this._initUniversalSearch();
   }
 
   _handleShareTrackingRestoreStatus(result) {
@@ -4564,25 +4560,6 @@ export class StyleManager {
    * simultaneously from already-loaded layer data (no new fetch pathway).
    * @returns {void}
    */
-  _initUniversalSearch() {
-    this._universalSearchControl?.destroy();
-    if (!this._universalSearch) return;
-    const { CITY_POIS, flyToPresetLocation, flyToPOI, searchAndFlyTo } =
-      this.services;
-    this._universalSearchControl = createUniversalSearch({
-      input: this._universalSearch,
-      resultsContainer: this._universalSearchResults,
-      statusElement: this._universalSearchStatus,
-      viewer: this.viewer,
-      dataManager: this._dataManager,
-      placeSearch: this.placeSearch,
-      cityPois: CITY_POIS,
-      flyToPreset: flyToPresetLocation,
-      flyToPoi: flyToPOI,
-      searchAndFly: searchAndFlyTo,
-    });
-  }
-
   /**
    * Self-locate button — purely client-side, ephemeral, never transmitted.
    * @returns {void}
@@ -5352,7 +5329,6 @@ export class StyleManager {
     this._mapSourceControls?.destroy();
     this._clearLayersControl?.destroy();
     this._locationControls?.destroy();
-    this._universalSearchControl?.destroy();
     this._selfLocateControl?.destroy();
     this._zoomSmoothingControl?.destroy();
     this._cctvControls?.destroy();
