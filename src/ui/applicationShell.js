@@ -34,6 +34,9 @@ import {
   clampBloomIntensity,
   decodeBloomIntensity,
 } from '../bloom.js';
+import { createUniversalSearch } from '../search/universalSearch.js';
+import { createSelfLocateControl } from './selfLocate.js';
+import { setupZoomSmoothing } from './zoomSmoothing.js';
 
 import {
   aircraftTrackingTarget,
@@ -613,6 +616,9 @@ export class StyleManager {
     this._initCctvPanel();
     this._initGlobalContextPanel();
     this._initLocationBar();
+    this._initUniversalSearch();
+    this._initSelfLocate();
+    this._initZoomSmoothing();
     this._initShareButton();
     this._initClearSelectedLayersButton();
     this._initHUDToggle();
@@ -2346,6 +2352,8 @@ export class StyleManager {
         );
       });
     }
+    // Re-bind universal search now that layer data is available
+    this._initUniversalSearch();
   }
 
   _handleShareTrackingRestoreStatus(result) {
@@ -4551,6 +4559,54 @@ export class StyleManager {
    * and geocoding search input.
    * @returns {void}
    */
+  /**
+   * Universal entity search: single input querying aircraft, vessels, places
+   * simultaneously from already-loaded layer data (no new fetch pathway).
+   * @returns {void}
+   */
+  _initUniversalSearch() {
+    this._universalSearchControl?.destroy();
+    if (!this._universalSearch) return;
+    const { CITY_POIS, flyToPresetLocation, flyToPOI, searchAndFlyTo } =
+      this.services;
+    this._universalSearchControl = createUniversalSearch({
+      input: this._universalSearch,
+      resultsContainer: this._universalSearchResults,
+      statusElement: this._universalSearchStatus,
+      viewer: this.viewer,
+      dataManager: this._dataManager,
+      placeSearch: this.placeSearch,
+      cityPois: CITY_POIS,
+      flyToPreset: flyToPresetLocation,
+      flyToPoi: flyToPOI,
+      searchAndFly: searchAndFlyTo,
+    });
+  }
+
+  /**
+   * Self-locate button — purely client-side, ephemeral, never transmitted.
+   * @returns {void}
+   */
+  _initSelfLocate() {
+    this._selfLocateControl?.destroy();
+    if (!this._selfLocateBtn) return;
+    this._selfLocateControl = createSelfLocateControl({
+      button: this._selfLocateBtn,
+      viewer: this.viewer,
+      showToast: (message) => this._showToast(message),
+    });
+  }
+
+  /**
+   * Trackpad zoom smoothing: prefers Cesium's built-in controller options,
+   * adds rAF easing and distinct sensitivity for trackpad/pinch vs mouse.
+   * @returns {void}
+   */
+  _initZoomSmoothing() {
+    this._zoomSmoothingControl?.destroy();
+    this._zoomSmoothingControl = setupZoomSmoothing(this.viewer);
+  }
+
   _initLocationBar() {
     const { CITY_POIS, searchAndFlyTo, LocationSearch } = this.services;
     this._locationControls?.destroy();
@@ -5296,6 +5352,9 @@ export class StyleManager {
     this._mapSourceControls?.destroy();
     this._clearLayersControl?.destroy();
     this._locationControls?.destroy();
+    this._universalSearchControl?.destroy();
+    this._selfLocateControl?.destroy();
+    this._zoomSmoothingControl?.destroy();
     this._cctvControls?.destroy();
     this._radioControls?.destroy();
     this.cockpitView?.stop();
