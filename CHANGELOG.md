@@ -13,6 +13,10 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ## [Unreleased]
 
+- Add universal entity search across aircraft, vessels and curated places with debounced results, keyboard navigation and an ARIA live region; selection reuses existing click/voice camera-centering logic.
+- Add self-locate button using browser geolocation — purely client-side and ephemeral, never logged or transmitted, with non-blocking error feedback.
+- Smooth trackpad zoom by configuring Cesium ScreenSpaceCameraController inertia/zoomFactor and adding rAF-based easing with distinct sensitivity for trackpad, pinch (ctrlKey) and mouse wheel.
+
 - Drive share updates, Location feedback and Scene controls through immutable state snapshots and disposable subscriptions.
 - Keep stale lookup/load completions from publishing accepted results and retain shot rows during playback progress updates.
 - Export the existing Scene director with explicit playback and editing outcomes.

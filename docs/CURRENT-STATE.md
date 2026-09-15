@@ -328,6 +328,14 @@ and takes Cesium from the consumer. CI runs both checks on Linux and Windows.
 The standalone app, layer behavior and public export paths remain unchanged.
 See [component ownership and adoption](CODE-BOUNDARIES.md).
 
+## Universal search, self-locate and trackpad zoom
+
+Universal search is a single input (`#universal-search`) querying already-loaded entity types (aircraft, vessels, curated places) without a new fetch pathway. Results are debounced at 250 ms, displayed in `#universal-search-results` (role listbox) with an ARIA live region (`#universal-search-status`) announcing result counts. Keyboard support: ArrowUp/ArrowDown to move selection, Enter to select, Escape to close/clear. Selecting a result reuses the existing selection/camera-centering handlers (flights `trackById`, vessels `selectById`, places `flyToPresetLocation`/`flyToPOI`/`searchAndFlyTo`) so behavior matches click and voice paths. The UI lives in `src/ui.js` via `src/ui/applicationShell.js` and data comes from `src/data/<layer>.js` modules and `src/search/universalSearch.js`.
+
+Self-locate is a location-crosshair button (`#self-locate-btn`, `my_location`) in the top-center action bar. It calls `navigator.geolocation.getCurrentPosition` only on click (browser permission prompt, never pre-requested), centers the Cesium camera on the returned coordinate for 1.6 s, and shows a non-blocking toast on denied/unavailable/timeout/error states. The location is purely client-side and ephemeral — never logged, stored, or transmitted to any proxy or other user.
+
+Trackpad zoom smoothing first prefers Cesium's built-in `ScreenSpaceCameraController` options (`inertiaSpin`, `inertiaTranslate`, `inertiaZoom`, `zoomFactor`, `minimumZoomRate`, `maximumZoomRate`) configured in `src/app/viewer.js`. For continuous small deltas, custom handling detects trackpad vs mouse wheel heuristically (delta size/frequency) and `event.ctrlKey` for macOS pinch, applies distinct sensitivity curves (pinch < trackpad < mouse) and `requestAnimationFrame`-based easing toward the target height so zoom feels continuous rather than steppy. Mouse wheel discrete notches are unchanged.
+
 ## Google browser and server keys
 
 Local Places nearby/text search and the CCTV Street View fallback prefer
