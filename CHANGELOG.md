@@ -1,5 +1,38 @@
 # Changelog
 
+- Distinguish PARTIAL vessel snapshots from STALE data in the layer panel, with
+  accepted-record counts and unchanged retention, freshness and outage safeguards.
+
+- Keep Nepal provider media inside the Pinokio compatibility boundary: use
+  source-linked fallback cards instead of automatic embeds or hidden preloads
+  that launch an external browser. Ordinary browsers retain embedded playback.
+  Source-only timed shots use their authored card dwell and continue normally.
+  Media autoplay now requires a live Play Scene or Play Shot action; passive
+  loading, saved state and seeking do not grant playback authority.
+
+- Add Director import previews, validated scene/shot detail drafts and selected-scene
+  JSON or asset-bundle sharing. Preserve attribution; verify bounded bundle bytes
+  before admission and release staged work on cancellation or teardown.
+
+- Director scene documents now support bounded data-pack manifests, per-shot
+  selection and registered GeoJSON/PNG/media loaders with explicit placement,
+  visible attribution and cancellation/disposal on Stop or replacement.
+
+- Director version 4 adds named camera anchors and explicit pose-to-pose moves
+  with shared playback/seek interpolation, easing and holds. Navigation and
+  manual input cancel authored motion; older scene files retain existing flights.
+
+
+- Director validates bounded version-3 scene files before replacing a project,
+  preserves unreadable browser saves, migrates legacy bloom once and preserves
+  zero-pitch/low-altitude camera and scope/detection edits. Project normalization has a separate owner.
+
+
+- Separate Director timing, seek calculations, playback clocks and registered
+  scene-pack presentation rules. Preserve authored content and controls; Stop
+  releases pending hold timers and stale ticks cannot affect replacement playback.
+
+
 - Keep parked transit vehicles aligned to their world course during camera orbits, fall back to reported bearing, and keep vehicles with no course consistently screen-up.
 
 - Separate Realtime connection, response/tool, Radio, input/audio, cost, viewport
@@ -182,6 +215,9 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 - Add self-locate button using browser geolocation — purely client-side and ephemeral, never logged or transmitted, with non-blocking error feedback.
 - Smooth trackpad zoom by configuring Cesium ScreenSpaceCameraController inertia/zoomFactor and adding rAF-based easing with distinct sensitivity for trackpad, pinch (ctrlKey) and mouse wheel.
+- Add bounded Director feature actions with accessible controls, explicit camera/layer admission and cancellation; restore pack geometry on same-shot seek. Preserve existing scenes and content attribution.
+
+
 - Give application request services, terrain/floor caches and annotation lookup state explicit owners and cancellation; share them across controls, layers and voice.
 
 - Construct application layers from explicit sources, with standalone provider selection and catalog-owned aircraft classification; controls and voice queries use those instances.
