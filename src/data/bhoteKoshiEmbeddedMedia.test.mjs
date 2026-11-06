@@ -6,9 +6,61 @@ import {
   createBhoteKoshiEmbeddedMedia,
   createTrimmedYouTubePlayback,
   embeddedMediaFrameUrl,
+  placeCard,
   publicEmbeddedMediaUrl,
   resolveEmbeddedMediaSource,
 } from './bhoteKoshiEmbeddedMedia.js';
+
+test('Pinokio fallback never creates provider DOM or loads SDKs', async () => {
+  const unexpected = () => { throw new Error('Provider resource allocated in Pinokio'); };
+  const media = createBhoteKoshiEmbeddedMedia({
+    viewer: {},
+    documentRef: { createElement: unexpected },
+    globalRef: {
+      navigator: { userAgent: 'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36 Pinokio/8.0.40' },
+      setTimeout: unexpected,
+      requestAnimationFrame: unexpected,
+    },
+    facebookLoader: unexpected,
+    youtubeLoader: unexpected,
+    xLoader: unexpected,
+  });
+  for (const sourceUrl of [
+    'https://www.youtube.com/watch?v=abcdefghijk',
+    'https://www.facebook.com/watch/?v=123456789',
+    'https://x.com/example/status/123456789',
+  ]) {
+    const options = { observation: { media: { sourceUrl } }, autoplay: true };
+    assert.equal(media.warm(options), false, 'no hidden preload');
+    assert.equal(media.show(options), false, 'retain the existing fallback card');
+    assert.equal(media.play(), false);
+    assert.equal(media.pause(), false);
+    media.hide();
+  }
+  media.destroy();
+  media.hide();
+  await Promise.resolve();
+});
+
+test('ordinary browsers retain real preloads on the same launcher URL', () => {
+  for (const userAgent of [
+    'Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36',
+    'Mozilla/5.0 Version/18.0 Safari/605.1.15',
+    'Mozilla/5.0 Electron/38.0.0',
+    '',
+  ]) {
+    const { media, root } = preloadFixture({ globalRef: {
+      navigator: { userAgent }, location: { href: 'http://127.0.0.1:42003/' },
+    } });
+    assert.equal(media.warm({ observation: { media: {
+      sourceUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
+    } } }), true);
+    assert.equal(root.children.length, 1);
+    media.pause();
+    assert.equal(root.children.length, 0);
+    media.destroy();
+  }
+});
 
 function trimmedPlaybackFixture() {
   let now = 0;
@@ -297,7 +349,7 @@ test('camera updates retain a preload until the visible player loads', () => {
   assert.equal(frame.parent, root, 'keep the preload while the visible player starts');
   const card = root.children.find(node => node.tag === 'section');
   const body = card.children.find(node => node.className === 'bhote-embedded-callout-body');
-  const player = body.children.find(node => node.className === 'bhote-embedded-callout-player');
+  const player = body.children.find(node => node.className.split(' ').includes('bhote-embedded-callout-player'));
   player.children.find(node => node.tag === 'iframe').dispatchEvent(new Event('load'));
   assert.equal(frame.parent, null, 'visible player readiness releases the preload');
   media.destroy();
@@ -342,4 +394,26 @@ test('pausing cancels a mounted Facebook preload and rejects its late ready call
   ready({ type: 'video', instance: { play() { playerCalls.push('play'); }, pause() { playerCalls.push('pause'); } } });
   assert.deepEqual(playerCalls, []);
   media.destroy();
+});
+
+test('a media card stays between the panels when right-to-left swaps their sides', () => {
+  const rect = (left, right, top = 0, bottom = 900) => ({ left, right, top, bottom, width: right - left, height: bottom - top });
+  // Arabic: the scene panel sits on the right, the context rail on the left.
+  const panels = {
+    '#scene-panel': rect(1040, 1420),
+    '#right-context-rail': rect(20, 340),
+    '#command-dock': rect(500, 940, 820, 880),
+  };
+  const card = {
+    offsetWidth: 392,
+    offsetHeight: 360,
+    parentElement: { getBoundingClientRect: () => rect(0, 1440) },
+    ownerDocument: { querySelector: (selector) => ({ getBoundingClientRect: () => panels[selector] }) },
+    classList: { contains: () => false },
+    style: {},
+  };
+  placeCard(card, { querySelector: () => null }, { x: 700, y: 400, width: 1440, height: 900 });
+  const left = parseFloat(card.style.left);
+  assert.ok(left >= 340 + 18, `card at ${left}px lands on the context rail`);
+  assert.ok(left + 392 <= 1040 - 18, `card at ${left}px lands on the scene panel`);
 });

@@ -29,7 +29,11 @@ function services() {
       forgetSpriteFocus: noop,
     },
     worldFocus: {},
-    render: { releaseContinuousRender: noop },
+    render: {
+      holdContinuousRender: noop,
+      releaseContinuousRender: noop,
+      governorRequestRender: noop,
+    },
   };
 }
 function setup(source, options = {}) {
@@ -124,7 +128,8 @@ test('partial observations retain missing contacts only until their receipt dead
   current = snapshot([observation('111')], { complete: false, rawRowCount: 2 });
   await layer.update();
   assert.equal(layer.hasContact('222'), true);
-  assert.equal(layer.getStats().stale, true);
+  assert.equal(layer.getStats().stale, false);
+  assert.equal(layer.getStats().partial, true);
   assert.equal(layer.getStats().rawRowCount, 2);
   assert.equal(layer.getStats().acceptedRowCount, 1);
   assert.equal(layer.getStats().lastUpdate, 500);
@@ -300,4 +305,119 @@ test('refresh keeps pick identity and renderer geometry separate, and eviction r
   await layer.update();
   assert.equal(primitives.has(primitive), false);
   assert.equal(layer.findByQuery('111'), null);
+});
+
+test('partial vessel snapshots preserve freshness and recover after a complete update', async (t) => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { getElementById: () => null };
+  t.after(() => {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  });
+  const { vesselSnapshot } = await import('../../sources/live/vessels.js');
+  const { layerFeedState } = await import('../../data/feedState.js');
+  const valid = {
+    mmsi: '123456789',
+    lat: 51.93,
+    lon: 4.05,
+    last_position_epoch: 1,
+  };
+  let current = vesselSnapshot({
+    rows: [valid, { ...valid }, { mmsi: '987654321', lat: 200, lon: 4 }],
+    status: 'live',
+  });
+  const { layer } = setup({ getSnapshot: async () => current });
+  await layer.update();
+  assert.equal(layer.getStats().partial, true);
+  assert.equal(layer.getStats().stale, false);
+  assert.equal(layer.getStats().rawRowCount, 3);
+  assert.equal(layer.getStats().acceptedRowCount, 1);
+  assert.equal(layerFeedState(layer.getStats()), 'partial');
+  assert.equal(layer.hasContact('123456789'), true);
+
+  for (const extra of [
+    { stale: true },
+    { freshness: 'stale' },
+    { freshness: 'unknown', observedAtMs: null },
+    { transportStatus: 'stale' },
+  ]) {
+    const original = current;
+    current = { ...original, ...extra };
+    await layer.update();
+    assert.equal(layer.getStats().partial, true);
+    assert.equal(layerFeedState(layer.getStats()), 'stale');
+    current = original;
+  }
+  current = { ...current, transportStatus: 'reconnecting' };
+  await layer.update();
+  assert.equal(layerFeedState(layer.getStats()), 'degraded');
+  assert.match(layer.getStats().error, /reconnecting/);
+
+  current = vesselSnapshot({ rows: [valid], status: 'live' });
+  await layer.update();
+  assert.equal(layer.getStats().partial, false);
+  assert.equal(layer.getStats().stale, false);
+  assert.equal(layer.getStats().error, null);
+  assert.equal(layerFeedState(layer.getStats()), 'nominal');
+  current = { ...current, complete: false };
+  await layer.update();
+  assert.equal(layer.getStats().partial, true);
+  layer.destroy();
+  assert.equal(layer.getStats().partial, false);
+});
+
+test('authoritative empty coverage clears old contacts without declaring an outage', async () => {
+  let current = snapshot([observation('111')]);
+  const { layer } = setup({
+    async getSnapshot() {
+      return current;
+    },
+  });
+  await layer.update();
+  current = snapshot([], { observedAtMs: null, lastMessageAt: 500 });
+  await layer.update();
+  assert.ok(!layer.hasContact('111'));
+  assert.equal(layer.getStats().count, 0);
+  assert.equal(layer.getStats().error, null);
+  assert.equal(layer.getStats().stale, false);
+  assert.equal(layer.getStats().lastUpdate, null);
+});
+
+test('empty coverage cannot hide stale, incomplete or rejected source data', async () => {
+  for (const patch of [
+    { freshness: 'unknown' },
+    { freshness: 'stale' },
+    { complete: false },
+    { rawRowCount: 1 },
+    { transportStatus: 'stale' },
+    { lastMessageAt: null },
+  ]) {
+    let current = snapshot([observation('111')]);
+    const { layer } = setup({
+      async getSnapshot() {
+        return current;
+      },
+    });
+    await layer.update();
+    current = snapshot([], {
+      observedAtMs: null,
+      lastMessageAt: 500,
+      ...patch,
+    });
+    await layer.update();
+    assert.equal(layer.hasContact('111'), true, JSON.stringify(patch));
+    assert.ok(layer.getStats().error, JSON.stringify(patch));
+  }
+});
+
+test('vessel stats name the provider the last snapshot reported', async () => {
+  const { layer } = setup({
+    label: 'Vessels',
+    async getSnapshot() {
+      return snapshot([observation('111')], { source: 'Datalastic' });
+    },
+  });
+  assert.equal(layer.getStats().source, 'Vessels');
+  await layer.update();
+  assert.equal(layer.getStats().source, 'Datalastic');
 });
